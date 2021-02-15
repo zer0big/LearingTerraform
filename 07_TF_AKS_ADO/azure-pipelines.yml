@@ -27,7 +27,7 @@ steps:
     provider: 'azurerm'
     command: 'init'
     workingDirectory: '$(System.DefaultWorkingDirectory)/skip-step'
-    backendServiceArm: 'Microsoft Azure 스폰서쉽(1e0d3be9-f078-420e-91be-15a5753947fa)'
+    backendServiceArm: 'Microsoft Azure Sponsorship - MVP(1199b626-a317-4559-9289-caba7859ee88)'
     backendAzureRmResourceGroupName: '$(resourceGroup)'
     backendAzureRmStorageAccountName: '$(storageAccount)'
     backendAzureRmContainerName: '$(container)'
