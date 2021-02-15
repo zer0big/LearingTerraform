@@ -1,0 +1,73 @@
+trigger:
+ - master
+ 
+variables:
+  vmImageName: 'ubuntu-latest'
+  location: 'Korea Central'
+  #terraformVersion: 0.14.3
+  azureSubscriptionServiceConnectionName: 'SvcConn4TFHandson'
+  subscription: 'Microsoft Azure Sponsorship - MVP'
+  resourceGroup: 'ud-terraform-demo-rg'
+  storageAccount: 'udzerotfstate'
+  storageAccountSku: 'Standard_LRS'
+  container: 'ud-zerotfstatecont'
+
+pool:
+  vmImage: $(vmImageName)
+
+steps:
+- task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@0
+  displayName: ‘Install Terraform 0.14.3’
+  inputs:
+    terraformVersion: 0.14.3
+
+- task: TerraformTaskV1@0
+  displayName: terraform init
+  inputs:
+    provider: 'azurerm'
+    command: 'init'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/skip-step'
+    backendServiceArm: 'Microsoft Azure 스폰서쉽(1e0d3be9-f078-420e-91be-15a5753947fa)'
+    backendAzureRmResourceGroupName: '$(resourceGroup)'
+    backendAzureRmStorageAccountName: '$(storageAccount)'
+    backendAzureRmContainerName: '$(container)'
+    backendAzureRmKey: '$(tfstateFile)'
+
+- task: TerraformTaskV1@0
+  displayName: terraform plan -out=tfplan
+  inputs:
+    provider: 'azurerm'
+    command: 'plan'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/skip-step'
+    commandOptions: '-out=tfplan'
+    environmentServiceNameAzureRM: 'Microsoft Azure Sponsorship - MVP(1199b626-a317-4559-9289-caba7859ee88)'
+
+- task: PowerShell@2
+  displayName: detect any terraform change
+  inputs:
+    workingDirectory: '$(System.DefaultWorkingDirectory)/skip-step'
+    targetType: 'inline'
+    script: |
+      # Write-Host "LASTEXITCODE : $LASTEXITCODE"
+      $plan = $(terraform show -json tfplan | ConvertFrom-Json)
+      $actions = $plan.resource_changes.change.actions
+      Write-Host "Terraform actions : $actions"
+      if (($actions -contains 'create') -or ($actions -contains 'delete') -or ($actions -contains 'update'))
+      {
+        Write-Host "Terraform will perform the following actions : $actions"
+        Write-Host "##vso[task.setvariable variable=anyTfChanges;]true"
+      }
+      else
+      {
+        Write-Host "There is no change detected in Terraform tfplan file"
+      }
+
+- task: TerraformTaskV1@0
+  displayName: terraform apply tfplan
+  condition: eq(variables.anyTfChanges, true)
+  inputs:
+    provider: 'azurerm'
+    command: 'apply'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/skip-step'
+    commandOptions: 'tfplan'
+    environmentServiceNameAzureRM: 'Microsoft Azure Sponsorship - MVP(1199b626-a317-4559-9289-caba7859ee88)'
